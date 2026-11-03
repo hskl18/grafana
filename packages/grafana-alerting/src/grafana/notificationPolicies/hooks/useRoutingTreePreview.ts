@@ -2,39 +2,38 @@ import { useMemo } from 'react';
 
 import { type Label } from '../../matchers/types';
 
-import { useMatchInstancesToSpecificRouteTree } from './useMatchPolicies';
+import { type InstanceMatchResult, matchInstancesToRouteTrees } from './useMatchPolicies';
 import { useRoutingTreeLookup } from './useResolvedRoutingTree';
 
 interface RoutingTreePreviewResult {
-  /** Anything but `found` means the tree couldn't be confirmed, so `routes` is empty and shouldn't be read as "no match". */
+  /** Anything but `found` means the tree couldn't be confirmed, so `results` is empty and shouldn't be read as "no match". */
   status: 'resolving' | 'notFound' | 'error' | 'found';
-  /** The tree's routes matching the instances. When `status` is `found`, empty means nothing matched. */
-  routes: Array<{ id: string; receiver?: string }>;
+  /** One result per instance, in order. When `status` is `found`, a result with no `matchedRoutes` means nothing matched. */
+  results: InstanceMatchResult[];
 }
 
-const NO_ROUTES: RoutingTreePreviewResult['routes'] = [];
+const NO_RESULTS: InstanceMatchResult[] = [];
 
-/** Previews the routes of a tree that match the instances. An unset name previews the default tree. */
+/** Previews how the instances route through a tree. An unset name previews the default tree. */
 export function useRoutingTreePreview(
   routingTreeName: string | undefined,
   instances: Label[][]
 ): RoutingTreePreviewResult {
   const { found, isResolving, isError } = useRoutingTreeLookup(routingTreeName);
-  const match = useMatchInstancesToSpecificRouteTree(found ?? null, instances);
-  const routes = useMemo(
-    () => (match ? Array.from(match.matchedPolicies.keys(), ({ id, receiver }) => ({ id, receiver })) : NO_ROUTES),
-    [match]
+  const results = useMemo(
+    () => (found ? matchInstancesToRouteTrees([found], instances) : NO_RESULTS),
+    [found, instances]
   );
 
   if (isError) {
-    return { status: 'error', routes: NO_ROUTES };
+    return { status: 'error', results: NO_RESULTS };
   }
   if (isResolving) {
-    return { status: 'resolving', routes: NO_ROUTES };
+    return { status: 'resolving', results: NO_RESULTS };
   }
   if (!found) {
-    return { status: 'notFound', routes: NO_ROUTES };
+    return { status: 'notFound', results: NO_RESULTS };
   }
 
-  return { status: 'found', routes };
+  return { status: 'found', results };
 }

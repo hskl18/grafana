@@ -17,6 +17,9 @@ import { useRoutingTrees } from './useRoutingTrees';
 const server = setupMockServer();
 
 const instances = [[['severity', 'critical']]] as Array<Array<[string, string]>>;
+
+const matchedReceivers = ({ results }: ReturnType<typeof useRoutingTreePreview>) =>
+  results.flatMap(({ matchedRoutes }) => matchedRoutes.map(({ route }) => route.receiver));
 const [defaultTree, namedTree] = simpleRoutingTreesList.items;
 
 beforeEach(() => {
@@ -35,22 +38,36 @@ describe('useRoutingTreePreview', () => {
     const { result } = renderPreview(namedTree.metadata.name);
 
     await waitFor(() => expect(result.current.preview.status).toBe('found'));
-    expect(result.current.preview.routes.map((route) => route.receiver)).toContain(namedTree.spec.defaults.receiver);
+    expect(matchedReceivers(result.current.preview)).toContain(namedTree.spec.defaults.receiver);
   });
 
-  it('maps each matched route to its id and receiver', async () => {
+  it('returns one result per instance, with the match details and the tree it matched in', async () => {
     const { result } = renderPreview(namedTree.metadata.name);
 
     await waitFor(() => expect(result.current.preview.status).toBe('found'));
-    expect(result.current.preview.routes).not.toHaveLength(0);
-    result.current.preview.routes.forEach((route) => expect(Object.keys(route).sort()).toEqual(['id', 'receiver']));
+    const [match] = result.current.preview.results;
+    expect(result.current.preview.results).toHaveLength(instances.length);
+    expect(match.labels).toBe(instances[0]);
+    expect(match.matchedRoutes).not.toHaveLength(0);
+    expect(match.matchedRoutes[0].routeTree.metadata.name).toBe(namedTree.metadata.name);
+    expect(match.matchedRoutes[0].matchDetails.labels).toBe(match.labels);
+  });
+
+  it('keeps the same results reference while nothing changes', async () => {
+    const { result, rerender } = renderPreview(namedTree.metadata.name);
+    await waitFor(() => expect(result.current.preview.status).toBe('found'));
+    const { results } = result.current.preview;
+
+    rerender();
+
+    expect(result.current.preview.results).toBe(results);
   });
 
   it.each([undefined, '', 'user-defined'])('previews the default policy for the name %p', async (name) => {
     const { result } = renderPreview(name);
 
     await waitFor(() => expect(result.current.preview.status).toBe('found'));
-    expect(result.current.preview.routes.map((route) => route.receiver)).toContain(defaultTree.spec.defaults.receiver);
+    expect(matchedReceivers(result.current.preview)).toContain(defaultTree.spec.defaults.receiver);
   });
 
   it('previews the default policy when the backend names it with the `default` alias', async () => {
@@ -59,7 +76,7 @@ describe('useRoutingTreePreview', () => {
     const { result } = renderPreview('default');
 
     await waitFor(() => expect(result.current.preview.status).toBe('found'));
-    expect(result.current.preview.routes.map((route) => route.receiver)).toContain(
+    expect(matchedReceivers(result.current.preview)).toContain(
       simpleRoutingTreesListDefaultAlias.items[0].spec.defaults.receiver
     );
   });
@@ -68,14 +85,14 @@ describe('useRoutingTreePreview', () => {
     const { result } = renderPreview(namedTree.metadata.name);
 
     expect(result.current.list.isLoading).toBe(true);
-    expect(result.current.preview).toEqual({ status: 'resolving', routes: [] });
+    expect(result.current.preview).toEqual({ status: 'resolving', results: [] });
   });
 
   it('is not found, rather than falling back to the default policy, for a tree that does not exist', async () => {
     const { result } = renderPreview('deleted-tree');
 
     await waitFor(() => expect(result.current.preview.status).toBe('notFound'));
-    expect(result.current.preview.routes).toEqual([]);
+    expect(result.current.preview.results).toEqual([]);
   });
 
   it.each([undefined, 'team-platform'])('is an error when the list cannot be loaded (name %p)', async (name) => {
@@ -84,6 +101,6 @@ describe('useRoutingTreePreview', () => {
     const { result } = renderPreview(name);
 
     await waitFor(() => expect(result.current.preview.status).toBe('error'));
-    expect(result.current.preview.routes).toEqual([]);
+    expect(result.current.preview.results).toEqual([]);
   });
 });

@@ -97,37 +97,41 @@ describe('preview', () => {
     const { result } = renderState(policyRouting('deployment-tools'));
 
     await waitFor(() => expect(result.current.status).toBe('found'));
-    expect(result.current.previewRoutes).toBeNull();
+    expect(result.current.preview).toBeNull();
   });
 
   it('lists the receivers of the named tree that match the instances', async () => {
     const { result } = renderState(policyRouting('deployment-tools'), true);
 
-    await waitFor(() => expect(result.current.previewRoutes).not.toBeNull());
-    expect(result.current.previewRoutes?.map((route) => route.receiver)).toContain(namedTree.spec.defaults.receiver);
+    await waitFor(() => expect(result.current.preview).not.toBeNull());
+    expect(
+      result.current.preview?.flatMap(({ matchedRoutes }) => matchedRoutes.map(({ route }) => route.receiver))
+    ).toContain(namedTree.spec.defaults.receiver);
   });
 
   it('previews the default policy for no value', async () => {
     const { result } = renderState(null, true);
 
-    await waitFor(() => expect(result.current.previewRoutes).not.toBeNull());
-    expect(result.current.previewRoutes?.map((route) => route.receiver)).toContain(defaultTree.spec.defaults.receiver);
+    await waitFor(() => expect(result.current.preview).not.toBeNull());
+    expect(
+      result.current.preview?.flatMap(({ matchedRoutes }) => matchedRoutes.map(({ route }) => route.receiver))
+    ).toContain(defaultTree.spec.defaults.receiver);
   });
 
-  it('keeps the same routes reference while nothing changes', async () => {
+  it('keeps the same preview reference while nothing changes', async () => {
     const { result, rerender } = renderState(policyRouting('deployment-tools'), true);
-    await waitFor(() => expect(result.current.previewRoutes).not.toBeNull());
-    const routes = result.current.previewRoutes;
+    await waitFor(() => expect(result.current.preview).not.toBeNull());
+    const preview = result.current.preview;
 
     rerender();
 
-    expect(result.current.previewRoutes).toBe(routes);
+    expect(result.current.preview).toBe(preview);
   });
 
   it('is unknown, not empty, for a tree that no longer exists', async () => {
     const { result } = renderState(policyRouting('deleted-tree'), true);
 
     await waitFor(() => expect(result.current.status).toBe('notFound'));
-    expect(result.current.previewRoutes).toBeNull();
+    expect(result.current.preview).toBeNull();
   });
 });

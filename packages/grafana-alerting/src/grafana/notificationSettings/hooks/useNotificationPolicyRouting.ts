@@ -33,9 +33,9 @@ export function useNotificationPolicyRouting({ value, instances = NO_INSTANCES }
     /** False only for a named tree that no longer exists: the backend rejects it, while a tree that is still resolving
      * or failed to load can't be judged. */
     isValid: status !== 'notFound',
-    /** Routes of the tree matching `instances`. `null` when there is nothing to preview or the tree isn't confirmed,
-     * so an empty array always means nothing matched. */
-    previewRoutes: instances.length > 0 && preview.status === 'found' ? preview.routes : null,
+    /** How each of `instances` routes through the tree. `null` when there is nothing to preview or the tree isn't
+     * confirmed, so a result without `matchedRoutes` always means nothing matched. */
+    preview: instances.length > 0 && preview.status === 'found' ? preview.results : null,
   };
 }
 
