@@ -130,6 +130,7 @@ import { getDashboardUrl } from '../utils/getDashboardUrl';
 import { getLayoutManagerFor } from '../utils/getLayoutManagerFor';
 import { DashboardInteractions } from '../utils/interactions';
 import {
+  isEditEntryBlocked,
   isMobileEditDeprecated,
   notifyMobileEditNotAvailable,
   redirectAwayFromMobileEdit,
@@ -2032,6 +2033,10 @@ export class DashboardScene extends SceneObjectBase<DashboardSceneState> impleme
 
   public onOpenSettings = () => {
     if (!canManuallyEditDashboard(this.state)) {
+      return;
+    }
+    if (isEditEntryBlocked(this)) {
+      notifyMobileEditNotAvailable();
       return;
     }
     const editview = this.state.meta.isDashboardTemplate ? 'template' : 'settings';
