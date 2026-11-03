@@ -1,15 +1,15 @@
 import { groupBy } from 'lodash';
+import { useMemo } from 'react';
 
+import { policyRouting, useNotificationPolicyRouting } from '@grafana/alerting/unstable';
 import { t } from '@grafana/i18n';
 import { Alert, Box, LoadingPlaceholder, Stack, withErrorBoundary } from '@grafana/ui';
-import { stringifyErrorLike } from 'app/features/alerting/unified/utils/misc';
 
 import { type Labels } from '../../../../../../types/unified-alerting-dto';
 import { type AlertManagerDataSource } from '../../../utils/datasource';
 
 import { GrafanaContactPointGroup } from './ContactPointGroup';
 import { InstanceMatch } from './NotificationRoute';
-import { useAlertmanagerNotificationRoutingPreview } from './useAlertmanagerNotificationRoutingPreview';
 
 const UNKNOWN_RECEIVER = 'unknown';
 
@@ -22,24 +22,20 @@ function NotificationPreviewGrafanaManaged({
   instances: Labels[];
   policyName?: string;
 }) {
-  const { treeMatchingResults, isLoading, error } = useAlertmanagerNotificationRoutingPreview(
-    alertManagerSource.name,
-    instances,
-    policyName
-  );
+  const labelSets = useMemo(() => instances.map((instance) => Object.entries(instance)), [instances]);
+  const { status, preview } = useNotificationPolicyRouting({
+    value: policyName ? policyRouting(policyName) : null,
+    instances: labelSets,
+  });
 
-  if (error) {
+  if (status === 'error') {
     const title = t('alerting.notification-preview.error', 'Could not load routing preview for {{alertmanager}}', {
       alertmanager: alertManagerSource.name,
     });
-    return (
-      <Alert title={title} severity="error">
-        {stringifyErrorLike(error)}
-      </Alert>
-    );
+    return <Alert title={title} severity="error" />;
   }
 
-  if (isLoading) {
+  if (status === 'resolving') {
     return (
       <LoadingPlaceholder
         text={t(
@@ -50,11 +46,12 @@ function NotificationPreviewGrafanaManaged({
     );
   }
 
-  const matchingPoliciesFound = treeMatchingResults.some((result) => result.matchedRoutes.length > 0);
+  const results = preview ?? [];
+  const matchingPoliciesFound = results.some((result) => result.matchedRoutes.length > 0);
 
   // Group results by receiver name
   // We need to flatten the structure first to group by receiver
-  const flattenedResults = treeMatchingResults.flatMap(({ labels, matchedRoutes }) => {
+  const flattenedResults = results.flatMap(({ labels, matchedRoutes }) => {
     return Array.from(matchedRoutes).map(({ route, routeTree, matchDetails }) => ({
       labels,
       receiver: route.receiver || UNKNOWN_RECEIVER,
@@ -87,5 +84,4 @@ function NotificationPreviewGrafanaManaged({
 }
 
 // export default because we want to load the component dynamically using React.lazy
-// Due to loading of the web worker we don't want to load this component when not necessary
 export default withErrorBoundary(NotificationPreviewGrafanaManaged);
